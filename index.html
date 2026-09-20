@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Cloud Notes</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+    <div id="authBox">
+        <h2>Cloud Notes Login</h2>
+
+        <input type="email" id="email" placeholder="Enter email">
+        <input type="password" id="password" placeholder="Enter password">
+
+        <button onclick="signup()">Sign Up</button>
+        <button onclick="login()">Login</button>
+        <button onclick="logout()">Logout</button>
+    </div>
+    <div class="container">
+
+        <h1>☁️ Cloud Notes</h1>
+
+        <input type="text" id="noteTitle" placeholder="Enter note title">
+
+        <textarea id="noteText" placeholder="Write your note here..."></textarea>
+
+        <button onclick="addNote()">Add Note</button>
+        <h2>Saved Notes</h2>
+        <input type="text" id="searchBox" placeholder="Search notes..">
+
+        <div id="notesList"></div>
+
+    </div>
+
+<script type="module">
+
+    import { initializeApp }
+        from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+
+    import {
+        getFirestore,
+        collection,
+        addDoc,
+        getDocs,
+        query,
+        where,
+        deleteDoc,
+        doc,
+        updateDoc
+    } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+
+    import {
+        getAuth,
+        createUserWithEmailAndPassword,
+        signInWithEmailAndPassword,
+        signOut
+    } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+
+
+    const firebaseConfig = {
+    apiKey: "AIzaSyDQl8CxN00nxnpxLmdmKG3Ai3tZoHZTN_E",
+    authDomain: "cloudnotes-ceeb4.firebaseapp.com",
+    projectId: "cloudnotes-ceeb4",
+    storageBucket: "cloudnotes-ceeb4.firebasestorage.app",
+    messagingSenderId: "277248523305",
+    appId: "1:277248523305:web:a55f5aab225b76f435f038",
+    measurementId: "G-H9Q79FZ06H"
+  };
+
+
+    const app = initializeApp(firebaseConfig);
+
+    const db = getFirestore(app);
+    const auth = getAuth(app);
+    window.signup = async function() {
+    const email = document.getElementById("email").value;
+    const password = document.getElementById("password").value;
+
+    try {
+        await createUserWithEmailAndPassword(auth, email, password);
+        alert("Account created successfully!");
+    } catch (error) {
+        console.error(error);
+        alert(error.message);
+    }
+};
+
+window.login = async function() {
+    const email = document.getElementById("email").value;
+    const password = document.getElementById("password").value;
+
+    try {
+        await signInWithEmailAndPassword(auth, email, password);
+        alert("Login successful!");
+    } catch (error) {
+        console.error(error);
+        alert(error.message);
+    }
+};
+
+window.logout = async function() {
+    try {
+        await signOut(auth);
+        alert("Logged out!");
+    } catch (error) {
+        console.error(error);
+        alert(error.message);
+    }
+};
+
+
+    window.addNote = async function() {
+
+        let title = document.getElementById("noteTitle").value;
+        let text = document.getElementById("noteText").value;
+        const user = auth.currentUser;
+
+        if (title === "" || text === "") {
+            alert("Please enter both title and note.");
+            return;
+        }
+
+        try {
+
+            await addDoc(collection(db, "notes"), {
+                title: title,
+                text: text,
+                uid:user.uid,
+                createdAt: new Date(),
+            });
+
+            alert("Note saved to the cloud! ☁️");
+
+            document.getElementById("noteTitle").value = "";
+            document.getElementById("noteText").value = "";
+            await loadNotes();
+
+        } catch (error) {
+
+            console.error(error);
+            alert("Error saving note.");
+
+        }
+    };
+    async function loadNotes() {
+    const notesList = document.getElementById("notesList");
+
+    notesList.innerHTML = "";
+
+    const q = query(
+    collection(db, "notes"),
+    where("uid", "==", auth.currentUser.uid)
+);
+
+    const snapshot = await getDocs(q);
+
+    snapshot.forEach((noteDoc) => {
+        const note = noteDoc.data();
+
+        const div = document.createElement("div");
+
+        div.innerHTML = `
+            <h3>${note.title}</h3>
+            <p>${note.text}</p>
+            <p>🕒 ${note.createdAt ? note.createdAt.toDate().toLocaleString() : ""}</p>
+            <button onclick="editNote('${noteDoc.id}', '${note.title}', '${note.text}')">✏️ Edit</button>
+            <button onclick="deleteNote('${noteDoc.id}')">🗑️ Delete</button>
+            <hr>
+        `;
+
+        notesList.appendChild(div);
+    });
+}
+window.deleteNote = async function(id) {
+    try {
+        await deleteDoc(doc(db, "notes", id));
+
+        alert("Note deleted!");
+
+        loadNotes();
+
+    } catch (error) {
+        console.error(error);
+        alert("Error deleting note.");
+    }
+};
+window.editNote = async function(id, title, text) {
+    const newTitle = prompt("Edit note title:", title);
+    const newText = prompt("Edit note text:", text);
+
+    if (newTitle === null || newText === null) {
+        return;
+    }
+
+    try {
+        await updateDoc(doc(db, "notes", id), {
+            title: newTitle,
+            text: newText
+        });
+
+        alert("Note updated!");
+
+        loadNotes();
+
+    } catch (error) {
+        console.error(error);
+        alert("Error updating note.");
+    }
+};
+document.getElementById("searchBox").addEventListener("input", function() {
+    const searchText = this.value.toLowerCase();
+
+    const notes = document.querySelectorAll("#notesList > div");
+
+    notes.forEach(function(note) {
+        const text = note.innerText.toLowerCase();
+
+        if (text.includes(searchText)) {
+            note.style.display = "block";
+        } else {
+            note.style.display = "none";
+        }
+    });
+});
+loadNotes();
+
+</script>
+
+</body>
+</html>
+    
